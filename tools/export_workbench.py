@@ -1,0 +1,150 @@
+"""Export translations from the PSCM workbench artifact into this repository.
+
+The workbench stores one record per MATLAB function (fields: status, py,
+pyPath, notes, ...). Export them with Claude (ArtifactData list of the
+"functions" collection, saved as JSON files), then run:
+
+    python tools/export_workbench.py <dir with *.json records>
+
+What it writes:
+  * MODULES records  -> importable files under pscm/ (at their pyPath)
+  * "In CobraPy" snippets (usage examples, not importable) -> docs/cobrapy_equivalents.md
+  * every record     -> STATUS.md (status table)
+
+Re-running overwrites those outputs, so edit translations in the workbench,
+not in the exported files (or copy edits back to the workbench).
+"""
+from __future__ import annotations
+
+import ast
+import glob
+import json
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GH = "https://github.com/opencobra/cobratoolbox/blob/master/"
+
+# workbench record id -> repo path of the module its "py" field contains
+MODULES = {
+    "optimizeCbModel": "pscm/core/optimize_cb_model.py",
+    "getCobraSolverParams": "pscm/core/solver_params.py",
+    "changeCobraSolver": "pscm/core/cobra_solver.py",
+    "buildOptProblemFromModel": "pscm/core/build_opt_problem.py",
+    "AGORAEssentialMetabolites": "pscm/data/agora_essential.py",
+    "adjustWholeBodyRxnCoeff": "pscm/analysis/adjust_whole_body_rxn_coeff.py",
+    "compareBounds2Models": "pscm/analysis/compare_bounds_2_models.py",
+    "setDietConstraints": "pscm/constraints/diet.py",
+}
+# records whose "py" is reference material rather than a snippet or module
+REFERENCE_ONLY = {"getCobraSolver": "cobrapy's own cobra.util.solver code, pasted for reference"}
+
+STATUS_LABEL = {"none": "Not started", "draft": "Drafting", "review": "In review",
+                "cobrapy": "In CobraPy", "verified": "Parity verified", "merged": "Merged",
+                "skip": "Won't port"}
+
+MATLAB_PATHS = {  # for links in STATUS.md (from the workbench catalog)
+    "optimizeCbModel": "src/analysis/FBA/optimizeCbModel.m",
+    "changeObjective": "src/analysis/FBA/changeObjective.m",
+    "changeRxnBounds": "src/analysis/FBA/changeRxnBounds.m",
+    "minimizeModelFlux": "src/analysis/FBA/minimizeModelFlux.m",
+    "buildOptProblemFromModel": "src/base/solvers/buildOptProblemFromModel.m",
+    "getCobraSolverParams": "src/base/solvers/param/getCobraSolverParams.m",
+    "getCobraSolverParamsOptionsForType": "src/base/solvers/param/getCobraSolverParamsOptionsForType.m",
+    "getCobraSolver": "src/base/solvers/getSetSolver/getCobraSolver.m",
+    "solveCobraLP": "src/base/solvers/solveCobraLP.m",
+    "optimizeCardinality": "src/base/solvers/cardOpt/sparseLP/optimizeCardinality.m",
+    "optimizeWBModel": "src/analysis/wholeBody/PSCMToolbox/optimizeWBModel.m",
+    "addReactionsHH": "src/analysis/wholeBody/PSCMToolbox/io/addReactionsHH.m",
+    "setDietConstraints": "src/analysis/wholeBody/PSCMToolbox/setConstraints/setDietConstraints.m",
+    "AGORAEssentialMetabolites": "src/analysis/wholeBody/PSCMToolbox/hostMicrobeInteraction/AGORAEssentialMetabolites.m",
+    "adjustWholeBodyRxnCoeff": "src/analysis/wholeBody/PSCMToolbox/adjustWholeBodyRxnCoeff.m",
+    "compareBounds2Models": "src/analysis/wholeBody/PSCMToolbox/compareBounds2Models.m",
+}
+
+
+def load(dir_):
+    recs = {}
+    for f in sorted(glob.glob(os.path.join(dir_, "*.json"))):
+        recs[os.path.splitext(os.path.basename(f))[0]] = json.load(open(f, encoding="utf-8"))
+    return recs
+
+
+def header(rid, rec):
+    return (f"# Exported from the PSCM workbench (record '{rid}', status: "
+            f"{STATUS_LABEL.get(rec.get('status'), rec.get('status'))}, updated {rec.get('updatedAt', '?')}).\n"
+            f"# Edit in the workbench, then re-run tools/export_workbench.py.\n")
+
+
+def main(src_dir):
+    recs = load(src_dir)
+    written = []
+    for rid, path in MODULES.items():
+        rec = recs.get(rid)
+        if not rec or not rec.get("py"):
+            print(f"skip {rid}: no Python code in workbench")
+            continue
+        ast.parse(rec["py"])  # refuse to export code that doesn't parse
+        out = os.path.join(ROOT, path)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(header(rid, rec) + rec["py"].rstrip() + "\n")
+        written.append(path)
+    # package __init__ files
+    for d in {os.path.dirname(p) for p in MODULES.values()} | {"pscm"}:
+        init = os.path.join(ROOT, d, "__init__.py")
+        if not os.path.exists(init):
+            open(init, "w").close()
+
+    # cobrapy equivalents
+    lines = ["# cobrapy equivalents",
+             "",
+             "MATLAB functions that need no translation because cobrapy already covers them.",
+             "These snippets come from the PSCM workbench. They are usage examples",
+             "(names like `model` and `met_ids` stand for your own objects), not importable code.",
+             "Generated by `tools/export_workbench.py`; edit in the workbench.", ""]
+    for rid, rec in recs.items():
+        py = (rec.get("py") or "").strip()
+        if rid in MODULES or not py:
+            continue
+        if rid in REFERENCE_ONLY:
+            continue
+        if rec.get("status") == "cobrapy" or py.startswith("# In CobraPy"):
+            lines += [f"## {rid}", ""]
+            if rec.get("notes"):
+                lines += [rec["notes"].strip(), ""]
+            lines += ["```python", py, "```", ""]
+    with open(os.path.join(ROOT, "docs", "cobrapy_equivalents.md"), "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines))
+
+    # status table
+    order = list(STATUS_LABEL)
+    rows = sorted(recs.items(), key=lambda kv: (order.index(kv[1].get("status", "none"))
+                                                 if kv[1].get("status") in order else 99, kv[0]))
+    t = ["# Translation status", "",
+         "Generated from the PSCM workbench by `tools/export_workbench.py`.", "",
+         "| MATLAB function | Status | Python | Notes |", "|---|---|---|---|"]
+    for rid, rec in rows:
+        name = f"[`{rid}`]({GH}{MATLAB_PATHS[rid]})" if rid in MATLAB_PATHS else f"`{rid}`"
+        if rid in MODULES and rec.get("py"):
+            py = f"[`{MODULES[rid]}`]({MODULES[rid]})"
+        elif rid in REFERENCE_ONLY:
+            py = REFERENCE_ONLY[rid]
+        elif (rec.get("py") or "").strip() and (rec.get("status") == "cobrapy" or rec["py"].lstrip().startswith("# In CobraPy")):
+            py = "[cobrapy snippet](docs/cobrapy_equivalents.md#" + rid.lower() + ")"
+        elif (rec.get("py") or "").strip():
+            py = "note only"
+        else:
+            py = "—"
+        note = " ".join((rec.get("notes") or "").split())
+        note = (note[:140] + "…") if len(note) > 140 else note
+        t.append(f"| {name} | {STATUS_LABEL.get(rec.get('status'), rec.get('status', ''))} | {py} | {note.replace('|', '/')} |")
+    with open(os.path.join(ROOT, "STATUS.md"), "w", encoding="utf-8") as fh:
+        fh.write("\n".join(t) + "\n")
+
+    print("modules:", *written, sep="\n  ")
+    print("wrote docs/cobrapy_equivalents.md and STATUS.md")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])

@@ -1,0 +1,48 @@
+# Exported from the PSCM workbench (record 'AGORAEssentialMetabolites', status: Drafting, updated 2026-10-05T16:04:20.401Z).
+# Edit in the workbench, then re-run tools/export_workbench.py.
+"""Metabolites required by the AGORA microbial reconstructions to grow.
+
+MATLAB source: src/analysis/wholeBody/PSCMToolbox/hostMicrobeInteraction/AGORAEssentialMetabolites.m
+commit: TODO. Translation status: Draft.
+
+Ids are kept exactly as in the .m file ('EX_...[u]'); callers convert them
+(setDietConstraints maps 'EX_' -> 'Diet_EX_' and '[u]' -> '[d]').
+'EX_gam[u]' appears twice in the source; MATLAB ends with unique(), so this is
+a sorted tuple of unique ids.
+"""
+_SOURCE = [
+    "EX_12dgr180[u]", "EX_26dap_M[u]", "EX_2obut[u]", "EX_3mop[u]", "EX_4hbz[u]",
+    "EX_ac[u]", "EX_acgam[u]", "EX_acmana[u]", "EX_ade[u]", "EX_adn[u]",
+    "EX_adocbl[u]", "EX_ala_D[u]", "EX_ala_L[u]", "EX_arab_D[u]", "EX_arg_L[u]",
+    "EX_asn_L[u]", "EX_btn[u]", "EX_ca2[u]", "EX_cbl1[u]", "EX_cgly[u]",
+    "EX_chor[u]", "EX_chsterol[u]", "EX_cit[u]", "EX_cl[u]", "EX_cobalt2[u]",
+    "EX_csn[u]", "EX_cu2[u]", "EX_cys_L[u]", "EX_dad_2[u]", "EX_dcyt[u]",
+    "EX_ddca[u]", "EX_dgsn[u]", "EX_fe2[u]", "EX_fe3[u]", "EX_fol[u]",
+    "EX_for[u]", "EX_gal[u]", "EX_glc_D[u]", "EX_glu_L[u]", "EX_gly[u]",
+    "EX_glyc[u]", "EX_glyc3p[u]", "EX_gthox[u]", "EX_gua[u]", "EX_h[u]",
+    "EX_h2s[u]", "EX_his_L[u]", "EX_hxan[u]", "EX_ile_L[u]", "EX_k[u]",
+    "EX_lanost[u]", "EX_leu_L[u]", "EX_lys_L[u]", "EX_met_L[u]", "EX_mg2[u]",
+    "EX_mn2[u]", "EX_mqn7[u]", "EX_mqn8[u]", "EX_nac[u]", "EX_ncam[u]",
+    "EX_nmn[u]", "EX_ocdca[u]", "EX_ocdcea[u]", "EX_orn[u]", "EX_phe_L[u]",
+    "EX_pheme[u]", "EX_pi[u]", "EX_pnto_R[u]", "EX_pro_L[u]", "EX_ptrc[u]",
+    "EX_pydx[u]", "EX_pydxn[u]", "EX_q8[u]", "EX_rib_D[u]", "EX_ribflv[u]",
+    "EX_ser_L[u]", "EX_sheme[u]", "EX_so4[u]", "EX_spmd[u]", "EX_thm[u]",
+    "EX_thr_L[u]", "EX_thymd[u]", "EX_trp_L[u]", "EX_ttdca[u]", "EX_tyr_L[u]",
+    "EX_ura[u]", "EX_val_L[u]", "EX_xan[u]", "EX_xyl_D[u]", "EX_zn2[u]",
+    # new
+    "EX_2dmmq8[u]", "EX_4abz[u]", "EX_adpcbl[u]", "EX_amet[u]", "EX_amp[u]",
+    "EX_cytd[u]", "EX_fald[u]", "EX_gln_L[u]", "EX_gsn[u]", "EX_gthrd[u]",
+    "EX_h2o[u]", "EX_malt[u]", "EX_no2[u]",
+    # added by Filippo Martinelli 8/6/2022
+    "EX_alaasp[u]", "EX_alagln[u]", "EX_alahis[u]", "EX_alathr[u]", "EX_arbt[u]",
+    "EX_chtbs[u]", "EX_coa[u]", "EX_dextrin[u]", "EX_gam[u]", "EX_glcn[u]",
+    "EX_glyasn[u]", "EX_glyleu[u]", "EX_glymet[u]", "EX_glytyr[u]", "EX_h2[u]",
+    "EX_indole[u]", "EX_mantr[u]", "EX_melib[u]", "EX_metala[u]",
+    "EX_metsox_S_L[u]", "EX_no3[u]", "EX_pime[u]", "EX_pydx5p[u]",
+    # New essential metabolites March 2024, M. Moghimi
+    "EX_5HPET[u]", "EX_ach[u]", "EX_appnn[u]", "EX_gam[u]", "EX_gd1c_hs[u]",
+    "EX_glygn5[u]", "EX_ksi[u]", "EX_mnl[u]", "EX_prostge1[u]", "EX_sucr[u]",
+    "EX_tre[u]",
+]
+
+AGORA_ESSENTIAL = tuple(sorted(set(_SOURCE)))   # MATLAB: unique(AGORAessential)
