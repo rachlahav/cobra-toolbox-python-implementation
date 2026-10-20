@@ -49,6 +49,17 @@ jobs:
           OPTCB_TOLERANCE_SHIM: "1"
         run: pytest -q tests/
 
+      # Per-test results as annotations (readable in the run summary and the API).
+      - name: Annotate results
+        if: always() && matrix.python-version == '3.12'
+        continue-on-error: true
+        run: |
+          python -c "import cobra, optlang; print('::notice title=environment::cobra', cobra.__version__, 'optlang', optlang.__version__, 'solvers', sorted(k for k, v in optlang.available_solvers.items() if v))"
+          OPTCB_IMPLS=translation,reference python tests/test_optimize_cb_model.py results_glpk > /dev/null 2>&1 || true
+          python tools/ci_annotate.py results_glpk.json "GLPK"
+          OPTCB_IMPLS=translation OPTCB_TOLERANCE_SHIM=1 python tests/test_optimize_cb_model.py results_shim > /dev/null 2>&1 || true
+          python tools/ci_annotate.py results_shim.json "GLPK+shim"
+
       - name: Benchmark (timings, informational)
         if: always()
         continue-on-error: true
