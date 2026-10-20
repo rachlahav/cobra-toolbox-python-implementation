@@ -30,9 +30,11 @@ def main(path, label):
             print(f"::error title={label}::" + esc(f"{len(groups) - 9} more distinct failures not shown"))
             break
         print(f"::error title={label} {impl} {status} x{len(tests)}::" + esc(f"{detail}\nTests: {', '.join(tests)}"))
-    passed = [f"{r['model']}/{r['test']}" for r in data["results"] if r["status"] == "PASS"]
-    if passed:
-        print(f"::notice title={label} passed::" + esc(", ".join(passed)[:3000]))
+    for impl in data["counts"]:
+        passed = [f"{r['model']}/{r['test']}" for r in data["results"]
+                  if r["status"] == "PASS" and r["impl"] == impl]
+        if passed:
+            print(f"::notice title={label} {impl} passed::" + esc(", ".join(passed)[:3000]))
 
 
 if __name__ == "__main__":
