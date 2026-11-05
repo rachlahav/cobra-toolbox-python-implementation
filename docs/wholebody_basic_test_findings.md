@@ -4,9 +4,16 @@ The simplest whole-body check: FBA on **Harvey 1.03d** (male WBM shipped with th
 COBRA Toolbox at `test/models/mat/Harvey_1_03d.mat`), objective
 `Whole_body_objective_rxn`. Scripts are in [`benchmarks/wholebody/`](../benchmarks/wholebody).
 
-Status (2026-11-05): **the Python side runs; the solver reports the model
-infeasible. The MATLAB side has not produced a result yet**, so there is no
-MATLAB-vs-Python comparison yet.
+Status (2026-11-05): **Harvey 1.03d is feasible as shipped.** With HiGHS's
+default settings, the Python LP finds a flux with `Whole_body_objective_rxn = 1` that
+satisfies mass balance, all 103,600 coupling constraints and the bounds (max
+violations 1.6e-9, 1.0e-7, 7.1e-8). The "infeasible" results from 2026-11-03 were
+solver artefacts: tightened tolerances (1e-9) and a HiGHS presolve error, not the
+model or the LP setup. The MATLAB side has not produced a result yet, so there is
+no MATLAB-vs-Python comparison yet.
+
+Test: [`tests/test_wholebody_basic.py`](../tests/test_wholebody_basic.py) (skipped unless
+`HARVEY_MAT` points at the model).
 
 ## The model as loaded in Python
 
@@ -19,44 +26,54 @@ MATLAB-vs-Python comparison yet.
 | Forced fluxes | 23 reactions with lb > 0, 144 with ub < 0 |
 | Load time (`scipy.io.loadmat`) | ~4 s |
 
-## Results (`wbm_basic_python.py`, SciPy 1.18 HiGHS, 2026-11-03)
+## Results
 
-| Test | HiGHS dual simplex | HiGHS interior point |
-|---|---|---|
-| 1. Feasibility, model as shipped (WBO fixed = 1) | infeasible (0.4 s) | infeasible (0.3 s) |
-| 2. Max WBO, bounds relaxed to [0, 1000] | infeasible (0.4 s) | infeasible (0.4 s) |
-| 3. Min WBO, bounds relaxed to [0, 1000] | infeasible (0.4 s) | infeasible (0.4 s) |
+### 2026-11-05: `tests/test_wholebody_basic.py` (SciPy 1.18, `method="highs"`, default tolerances)
 
-Raw output: [`benchmarks/wholebody/results/2026-11-03_harvey_1_03d_highs.log`](../benchmarks/wholebody/results/2026-11-03_harvey_1_03d_highs.log).
-Same result with default tolerances and with feasibility/optimality tolerances of 1e-9.
+| Test | Result |
+|---|---|
+| Dimensions, senses, objective bounds, data consistency (4 tests) | pass |
+| Feasibility, model as shipped (WBO fixed = 1) | **pass**: feasible, WBO = 1.0, ~175 s |
+| Relaxed problem (WBO in [0, 1000]) is feasible, checked without a solver | **pass**: the as-shipped flux satisfies it |
+| Max WBO, bounds [0, 1000] | xfail: HiGHS reports "infeasible" in < 1 s |
+| Min WBO, bounds [0, 1000] | xfail: HiGHS reports "infeasible" in < 1 s |
 
-## Diagnostics (`diagnose_infeasibility.py`)
+The relaxed problem contains every solution of the as-shipped one, so the "infeasible"
+answers for max/min are wrong. They come back in under a second, i.e. from HiGHS
+presolve. With presolve off, the max solve had not finished after ~7 min (stopped).
 
-- No lb > ub, no NaN/Inf, no row of `S v = 0` or `C v ≤/≥ 0` that is impossible on its own
-  given the bounds (interval arithmetic).
-- Relaxing WBO to 0 does not help, so the conflict is independent of the objective.
-- Infeasible with only the `L` coupling rows, and with only the `G` rows.
-- Without any coupling rows, HiGHS did not detect infeasibility in presolve (the solve was
-  stopped after 10 min, unfinished).
+### 2026-11-03: `benchmarks/wholebody/wbm_basic_python.py` (superseded)
 
-So the conflict most likely involves the coupling constraints together with the forced
-fluxes.
+All three variants (as shipped, max, min; dual simplex and interior point) were reported
+infeasible in < 0.5 s. That script sets feasibility/optimality tolerances to 1e-9;
+with the default tolerances the as-shipped case is feasible (above). The script now uses the defaults. Raw output:
+[`benchmarks/wholebody/results/2026-11-03_harvey_1_03d_highs.log`](../benchmarks/wholebody/results/2026-11-03_harvey_1_03d_highs.log).
 
-## Possible causes (not yet distinguished)
+`diagnose_infeasibility.py` found no data problems: no lb > ub, no NaN/Inf, no row of
+`S v = 0` or `C v ≤/≥ 0` impossible on its own given the bounds. Its "infeasible with only
+the L / only the G coupling rows" results use the relaxed bounds, so they hit the same
+presolve error.
 
-1. **The model file.** This Harvey copy may not be feasible as stored (e.g. it expects a diet
-   or other setup before solving).
-2. **Numerical scaling.** Bounds reach 1e6 while coupling coefficients are small; HiGHS may
-   declare infeasible what a MATLAB solver with looser tolerances accepts.
-3. **A mistake in the Python LP setup**, e.g. the sign convention of the coupling rows. Row
-   counts and senses match the file; signs have not been checked against MATLAB.
+## Why it matters for the translation
 
-## What settles it
+The model is badly scaled: bounds reach ±1e6 (lb up to 62,169, ub down to −132,714) while
+coupling coefficients are small. Solver settings change the answer:
+- tolerances tighter than the default (1e-9) turn a feasible model "infeasible";
+- HiGHS presolve declares the relaxed model infeasible.
 
-Run [`run_matlab_fba.m`](../benchmarks/wholebody/run_matlab_fba.m) with CPLEX or Gurobi. If
-MATLAB also returns `stat = 0`, it is the model file; if MATLAB finds a solution, compare with
-[`run_python_fba.py`](../benchmarks/wholebody/run_python_fba.py) (cobrapy, same LP from
-MATLAB's exported `harvey_lean.mat`).
+So parity tests on whole-body models must use the same solver and tolerances on both
+sides, and should check feasibility of the returned flux directly (as the test does)
+rather than trusting the status alone. COBRA's default `feasTol` is 1e-6.
+
+## Next steps
+
+1. Run [`run_matlab_fba.m`](../benchmarks/wholebody/run_matlab_fba.m) with CPLEX or Gurobi
+   to get MATLAB's max `Whole_body_objective_rxn`, then compare with
+   [`run_python_fba.py`](../benchmarks/wholebody/run_python_fba.py) (cobrapy, same LP).
+2. Get a Python max/min value: try HiGHS with presolve off and a longer time limit, or
+   Gurobi/CPLEX from Python.
+
+`wbm_basic_python.py` now uses HiGHS's default tolerances (changed 2026-11-05).
 
 Solver notes from the attempt on 2026-11-02 (MacBook Air, Apple Silicon, 8 GB RAM, MATLAB R2026b):
 - GLPK ran for hours without finishing and used ~21 GB swap.

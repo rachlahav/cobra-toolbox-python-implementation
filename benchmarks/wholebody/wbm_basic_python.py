@@ -69,9 +69,7 @@ results = []
 def solve(name, cvec, lo, hi, method):
     t0 = time.time()
     r = linprog(cvec, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq,
-                bounds=np.column_stack([lo, hi]), method=method,
-                options={"presolve": True, "primal_feasibility_tolerance": 1e-9,
-                         "dual_feasibility_tolerance": 1e-9})
+                bounds=np.column_stack([lo, hi]), method=method)  # default tolerances: 1e-9 made the feasible model "infeasible"
     t = time.time() - t0
     row = {"test": name, "solver": method, "status": r.status, "message": r.message.split(".")[0],
            "time_s": round(t, 1)}
