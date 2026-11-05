@@ -18,6 +18,7 @@ pscm/                     the translation (package)
   analysis/  constraints/  data/
 tests/
   test_optimize_cb_model.py   checks vs MATLAB reference values (iAF1260, E. coli core)
+  test_wholebody_basic.py     basic whole-body test on Harvey 1.03d (skipped unless HARVEY_MAT is set)
   adapters.py                 connects implementations to the tests
   reference/                  SciPy/HiGHS port of optimizeCbModel, used as a control
   models/                     ecoli_core_model.mat, iAF1260.mat (from opencobra/COBRA.models)
@@ -80,7 +81,10 @@ Harvey is not stored in this repo (it ships with the COBRA Toolbox at
 [docs/wholebody_basic_test_findings.md](docs/wholebody_basic_test_findings.md).
 
 ```bash
-# Python only (numpy + scipy): feasibility, max and min of Whole_body_objective_rxn
+# pytest: model checks + feasibility (the feasibility solve takes ~3 min)
+HARVEY_MAT=path/to/Harvey_1_03d.mat pytest -q -rxX tests/test_wholebody_basic.py
+
+# standalone scripts (numpy + scipy): feasibility, max and min of Whole_body_objective_rxn
 python benchmarks/wholebody/wbm_basic_python.py path/to/Harvey_1_03d.mat
 python benchmarks/wholebody/diagnose_infeasibility.py path/to/Harvey_1_03d.mat
 ```
