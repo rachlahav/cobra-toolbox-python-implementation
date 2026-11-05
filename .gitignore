@@ -10,3 +10,6 @@ results*.json
 results*.csv
 benchmarks/python_results*
 .DS_Store
+
+# whole-body test outputs (large / generated)
+benchmarks/wholebody/*.mat

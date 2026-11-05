@@ -8,6 +8,7 @@ Zomorrodi lab, MGH.
 - **Status of every function:** [STATUS.md](STATUS.md)
 - **Where cobrapy already does the job:** [docs/cobrapy_equivalents.md](docs/cobrapy_equivalents.md)
 - **Latest test findings for `optimize_cb_model`:** [docs/optimize_cb_model_findings.md](docs/optimize_cb_model_findings.md)
+- **Basic whole-body model test (Harvey 1.03d):** [docs/wholebody_basic_test_findings.md](docs/wholebody_basic_test_findings.md)
 
 ## Layout
 
@@ -23,6 +24,7 @@ tests/
 benchmarks/
   benchmark.py  compare.py    Python timings; side-by-side with MATLAB
   matlab/run_matlab_reference.m
+  wholebody/                  basic whole-body test on Harvey 1.03d (MATLAB + Python)
 tools/export_workbench.py  sync translations from the PSCM workbench artifact
 ```
 
@@ -70,3 +72,24 @@ ask Claude to export the workbench's `functions` collection and run
 `python tools/export_workbench.py <export dir>`, which rewrites the modules,
 `STATUS.md` and `docs/cobrapy_equivalents.md`. Exported files carry a header
 naming their workbench record.
+
+## Basic whole-body test (Harvey 1.03d)
+
+Harvey is not stored in this repo (it ships with the COBRA Toolbox at
+`test/models/mat/Harvey_1_03d.mat`). Findings so far:
+[docs/wholebody_basic_test_findings.md](docs/wholebody_basic_test_findings.md).
+
+```bash
+# Python only (numpy + scipy): feasibility, max and min of Whole_body_objective_rxn
+python benchmarks/wholebody/wbm_basic_python.py path/to/Harvey_1_03d.mat
+python benchmarks/wholebody/diagnose_infeasibility.py path/to/Harvey_1_03d.mat
+```
+
+```matlab
+% MATLAB vs Python: after initCobraToolbox(false); set solverName at the top
+run benchmarks/wholebody/run_matlab_fba.m   % writes harvey_lean.mat, matlab_result.mat
+```
+
+```bash
+python benchmarks/wholebody/run_python_fba.py glpk   # cobrapy on the same LP, PASS/FAIL vs MATLAB
+```
